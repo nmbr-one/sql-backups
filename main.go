@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"strings"
@@ -10,25 +12,57 @@ import (
 	"nmbr.one/sql-backups/files"
 )
 
-func prepareBackupFile(backupFileName string) (*os.File, error) {
+func prepareBackupFile(backupFileName string) *os.File {
 	var file, openError = os.Create(backupFileName)
 
 	if openError != nil {
-		return nil, openError
+		println("Can't open file '" + backupFileName + "'. You should check your filesystem permissions.")
+		os.Exit(101)
 	}
 
-	return file, nil
+	return file
 }
 
-func startBackup(sqlHost string, sqlDB string, sqlUser string, sqlPassword string, file *os.File) error {
-	var command = exec.Command("mysqldump", "-h", sqlHost, "-u", sqlUser, "--password="+sqlPassword, sqlDB)
+func closeBackupFile(backupFile *os.File) {
+	var closeError = backupFile.Close()
 
-	command.Stdout = file
+	if closeError != nil {
+		println("Can't close file '" + backupFile.Name() + "'. You should check your filesystem permissions and disk usage.")
+		os.Exit(106)
+	}
+}
+
+func testMysqldump(mysqldumpPath string) {
+	var command = exec.Command(mysqldumpPath, "--version")
 
 	var runError = command.Run()
 
 	if runError != nil {
-		return runError
+		println("Can't find mysqldump at path '" + mysqldumpPath + "'. You should check the mysqldump-path option in config.")
+		os.Exit(102)
+	}
+}
+
+func startBackup(mysqldumpPath string, sqlHost string, sqlDB string, sqlUser string, sqlPassword string, file *os.File) error {
+	var command *exec.Cmd
+
+	if sqlPassword == "" {
+		command = exec.Command(mysqldumpPath, "-h", sqlHost, "-u", sqlUser, sqlDB)
+	} else {
+		command = exec.Command(mysqldumpPath, "-h", sqlHost, "-u", sqlUser, "--password="+sqlPassword, sqlDB)
+	}
+
+	var errorMessageBuffer = &bytes.Buffer{}
+
+	command.Stdout = file
+	command.Stderr = errorMessageBuffer
+
+	var runError = command.Run()
+
+	if runError != nil {
+		var errorMessage = errorMessageBuffer.String()
+
+		return errors.New(errorMessage)
 	}
 
 	return nil
@@ -44,6 +78,7 @@ func parseDatabases(configEntry string) []string {
 // 102 = Can not find mysqldump executable
 // 104 = Invalid initial-backup-time
 // 105 = No config.properties file found
+// 106 = Can not close sql file
 func main() {
 	var config = files.NewPropertiesFile("config.properties")
 
@@ -53,6 +88,10 @@ func main() {
 		println("No config.properties file found.")
 		os.Exit(105)
 	}
+
+	var mysqldumpPath = config.Get("mysqldump-path")
+
+	testMysqldump(mysqldumpPath)
 
 	var logger = discord.Logger{
 		WebhookURL: config.Get("webhook-url"),
@@ -93,20 +132,31 @@ func main() {
 			println("Backup Time")
 
 			for _, sqlDB := range sqlDatabases {
-				var backupFile, fileError = prepareBackupFile(sqlDB + ".sql")
+				var backupFile = prepareBackupFile(sqlDB + ".sql")
+				var backupError = startBackup(mysqldumpPath, sqlHost, sqlDB, sqlUser, sqlPassword, backupFile)
 
-				if fileError != nil {
-					println("Can't open file " + sqlDB + ".sql.")
-					os.Exit(101)
-				}
-
-				var backupError = startBackup(sqlHost, sqlDB, sqlUser, sqlPassword, backupFile)
-
-				backupFile.Close()
+				closeBackupFile(backupFile)
 
 				if backupError != nil {
-					println("Can't find mysqldump executable. Please review your mysql installation.")
-					os.Exit(102)
+					println("Backup for database", sqlDB, "failed due to wrong credentials provided by the host, user and password options from config.")
+					println("Error: " + backupError.Error())
+
+					logger.Log(discord.Embed{
+						Title: "SQL-Backup wurde fehlerhaft abgeschlossen",
+						Color: discord.ColorRed,
+						Fields: []discord.Field{
+							{
+								Name:   "Datenbank",
+								Value:  sqlDB,
+								Inline: false,
+							},
+							{
+								Name:   "Fehlerbeschreibung",
+								Value:  backupError.Error(),
+								Inline: false,
+							},
+						},
+					})
 				} else {
 					logger.LogFile(discord.Embed{
 						Title: "SQL-Backup erfolgreich abgeschlossen",
