@@ -19,3 +19,9 @@
 
 # Go workspace file
 go.work
+
+# sql-backups executable
+sql-backups
+
+# sql-backups live config
+config.properties
