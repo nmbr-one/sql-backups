@@ -43,11 +43,15 @@ func parseDatabases(configEntry string) []string {
 // 101 = Can not open sql file
 // 102 = Can not find mysqldump executable
 // 104 = Invalid initial-backup-time
+// 105 = No config.properties file found
 func main() {
 	var config = files.NewPropertiesFile("config.properties")
 
 	if config.Exists() {
 		config.Load()
+	} else {
+		println("No config.properties file found.")
+		os.Exit(105)
 	}
 
 	var logger = discord.Logger{
