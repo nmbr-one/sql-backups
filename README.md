@@ -7,7 +7,7 @@
 2. Entpacke die Archivdatei, sodass die sql-backups.exe direkt in einem Ordner liegt.
 3. Erstelle eine Datei namens config.properties mit den Werten aus der [Beispiel-Konfigurationsdatei](https://github.com/nmbr-one/sql-backups/blob/main/example.config.properties) im gleichen Ordner wie die sql-backups.exe.
 4. Passe die Werte in der config.properties so an, dass die Anmeldedaten für deinen MySQL-/MariaDB-Server, der Pfad zu mysqldump und die Webhook-URL für Discord stimmen.
-5. Doppelklicke die sql-backups.exe. Alternativ kannst du auch eine cmd oder powershell öffnen, ``.\sql-backups.exe`` dort eingeben und mit Enter bestätigen. Letzteres macht besonders dann Sinn, wenn ein Doppelklick offenbar keine Wirkung hat, da in einem Terminal die Fehlermeldungen besser lesbar sind.
+5. Doppelklicke die sql-backups.exe. Alternativ kannst du auch eine cmd oder powershell öffnen, den Befehl ``.\sql-backups.exe`` dort eingeben und mit Enter bestätigen. Letzteres macht besonders dann Sinn, wenn ein Doppelklick offenbar keine Wirkung hat, da in einem Terminal die Fehlermeldungen besser lesbar sind.
 ## Linux
 1. Downloade die neueste Version der Software über den folgenden Link:
    
